@@ -1,15 +1,16 @@
 version: 2.1
 
-orbs:
-  shellcheck: circleci/shellcheck@3.2.0
-
 jobs:
   lint:
     docker:
       - image: cimg/base:stable
     steps:
       - checkout
-      - shellcheck/install
+      - run:
+          name: Install shellcheck
+          command: |
+            sudo apt-get update -qq
+            sudo apt-get install -y shellcheck
       - run:
           name: shellcheck
           command: shellcheck bin/stream-transcribe bin/gc
@@ -33,12 +34,38 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y bats
       - run:
-          name: Create whisper-cli stub
+          name: Create stubs for ffmpeg and whisper-cli
           command: |
             mkdir -p "$HOME/.local/bin"
-            printf '#!/bin/bash\nof_next=false; outfile=""\nfor arg in "$@"; do\n  if $of_next; then outfile="$arg"; of_next=false; fi\n  [[ "$arg" == "-of" ]] && of_next=true\ndone\n[[ -n "$outfile" ]] && echo "stub transcript" > "${outfile}.txt"\nexit 0\n' \
-              > "$HOME/.local/bin/whisper-cli"
+
+            cat > "$HOME/.local/bin/ffmpeg" <<'STUB'
+            #!/bin/bash
+            if [[ "$*" == *"list_devices"* ]]; then
+              echo "[AVFoundation indev @ 0x1] [0] Built-in Microphone"
+              echo "[AVFoundation indev @ 0x1] [1] BlackHole 2ch"
+              exit 1
+            fi
+            for arg in "$@"; do
+              if [[ "$arg" == *.wav ]]; then
+                dd if=/dev/zero bs=1 count=100 of="$arg" 2>/dev/null
+              fi
+            done
+            exit 0
+            STUB
+            chmod +x "$HOME/.local/bin/ffmpeg"
+
+            cat > "$HOME/.local/bin/whisper-cli" <<'STUB'
+            #!/bin/bash
+            of_next=false; outfile=""
+            for arg in "$@"; do
+              if $of_next; then outfile="$arg"; of_next=false; fi
+              [[ "$arg" == "-of" ]] && of_next=true
+            done
+            [[ -n "$outfile" ]] && echo "stub transcript" > "${outfile}.txt"
+            exit 0
+            STUB
             chmod +x "$HOME/.local/bin/whisper-cli"
+
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
       - run:
           name: Run bats tests

@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://dl.circleci.com/status-badge/redirect/gh/jmcoimbra/sound2transcript/tree/main"><img src="https://dl.circleci.com/status-badge/img/gh/jmcoimbra/sound2transcript/tree/main.svg?style=shield" alt="CircleCI"></a>
+  <a href="https://app.circleci.com/pipelines/github/jmcoimbra/sound2transcript"><img src="https://img.shields.io/circleci/build/github/jmcoimbra/sound2transcript/main?style=flat&logo=circleci&label=CI" alt="CircleCI"></a>
   <a href="https://app.codacy.com/gh/jmcoimbra/sound2transcript/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade"><img src="https://app.codacy.com/project/badge/Grade/0a6d6cc43a3b4a33908317ee7db751e7" alt="Codacy Badge"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://www.apple.com/macos/"><img src="https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple&logoColor=white" alt="Platform: macOS"></a>
