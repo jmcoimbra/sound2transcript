@@ -1,5 +1,18 @@
 #!/usr/bin/env bats
 
+# Portable date helper: works on macOS (date -v) and Linux (date -d)
+backdate() {
+  local file="$1"
+  local days="$2"
+  local ts
+  if date -v-1d +%Y%m%d%H%M >/dev/null 2>&1; then
+    ts=$(date -v-"${days}"d +%Y%m%d%H%M)
+  else
+    ts=$(date -d "${days} days ago" +%Y%m%d%H%M)
+  fi
+  touch -t "$ts" "$file"
+}
+
 setup() {
   TEST_DIR="$(mktemp -d)"
   export SOUND2TRANSCRIPT_CONFIG="${TEST_DIR}/config.env"
@@ -28,8 +41,7 @@ teardown() {
 @test "gc removes WAV files older than retention days" {
   local wav="${TEST_DIR}/sound2transcript/recordings/old_session.wav"
   touch "$wav"
-  # Set mtime to 10 days ago
-  touch -t "$(date -v-10d +%Y%m%d%H%M)" "$wav"
+  backdate "$wav" 10
 
   run bin/gc
   [ "$status" -eq 0 ]
@@ -48,7 +60,7 @@ teardown() {
 @test "gc removes old transcripts when retention > 0" {
   local txt="${TEST_DIR}/sound2transcript/transcripts/old.txt"
   touch "$txt"
-  touch -t "$(date -v-40d +%Y%m%d%H%M)" "$txt"
+  backdate "$txt" 40
 
   run bin/gc
   [ "$status" -eq 0 ]
@@ -65,7 +77,7 @@ CONF
 
   local txt="${TEST_DIR}/sound2transcript/transcripts/keep.txt"
   touch "$txt"
-  touch -t "$(date -v-100d +%Y%m%d%H%M)" "$txt"
+  backdate "$txt" 100
 
   run bin/gc
   [ "$status" -eq 0 ]
