@@ -37,35 +37,10 @@ jobs:
           name: Create stubs for ffmpeg and whisper-cli
           command: |
             mkdir -p "$HOME/.local/bin"
-
-            cat > "$HOME/.local/bin/ffmpeg" <<'STUB'
-            #!/bin/bash
-            if [[ "$*" == *"list_devices"* ]]; then
-              echo "[AVFoundation indev @ 0x1] [0] Built-in Microphone"
-              echo "[AVFoundation indev @ 0x1] [1] BlackHole 2ch"
-              exit 1
-            fi
-            for arg in "$@"; do
-              if [[ "$arg" == *.wav ]]; then
-                dd if=/dev/zero bs=1 count=100 of="$arg" 2>/dev/null
-              fi
-            done
-            exit 0
-            STUB
+            printf '%s\n' '#!/bin/bash' 'if [[ "$*" == *"list_devices"* ]]; then' '  echo "[AVFoundation indev @ 0x1] [0] Built-in Microphone"' '  echo "[AVFoundation indev @ 0x1] [1] BlackHole 2ch"' '  exit 1' 'fi' 'for arg in "$@"; do' '  if [[ "$arg" == *.wav ]]; then' '    dd if=/dev/zero bs=1 count=100 of="$arg" 2>/dev/null' '  fi' 'done' 'exit 0' > "$HOME/.local/bin/ffmpeg"
             chmod +x "$HOME/.local/bin/ffmpeg"
-
-            cat > "$HOME/.local/bin/whisper-cli" <<'STUB'
-            #!/bin/bash
-            of_next=false; outfile=""
-            for arg in "$@"; do
-              if $of_next; then outfile="$arg"; of_next=false; fi
-              [[ "$arg" == "-of" ]] && of_next=true
-            done
-            [[ -n "$outfile" ]] && echo "stub transcript" > "${outfile}.txt"
-            exit 0
-            STUB
+            printf '%s\n' '#!/bin/bash' 'of_next=false; outfile=""' 'for arg in "$@"; do' '  if $of_next; then outfile="$arg"; of_next=false; fi' '  [[ "$arg" == "-of" ]] && of_next=true' 'done' '[[ -n "$outfile" ]] && echo "stub transcript" > "${outfile}.txt"' 'exit 0' > "$HOME/.local/bin/whisper-cli"
             chmod +x "$HOME/.local/bin/whisper-cli"
-
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
       - run:
           name: Run bats tests
