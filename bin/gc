@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# gc - garbage collector for sound2transcript
+set -euo pipefail
+
+INSTALL_DIR="$HOME/sound2transcript"
+CONFIG_FILE="${SOUND2TRANSCRIPT_CONFIG:-${INSTALL_DIR}/config/config.env}"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  echo "ERROR: config not found at $CONFIG_FILE" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+source "$CONFIG_FILE"
+
+LOG_FILE="${INSTALL_DIR}/logs/gc_$(date +%Y%m%d).log"
+mkdir -p "${INSTALL_DIR}/logs"
+
+log() {
+  echo "[$(date +%Y-%m-%dT%H:%M:%S)] $*" | tee -a "$LOG_FILE"
+}
+
+RECORDINGS_DIR="${INSTALL_DIR}/recordings"
+TRANSCRIPTS_DIR="${INSTALL_DIR}/transcripts"
+
+# Phase 1: Remove recordings older than RECORDINGS_RETENTION_DAYS
+if [[ -d "$RECORDINGS_DIR" ]]; then
+  log "Phase 1: removing WAV files older than ${RECORDINGS_RETENTION_DAYS:-3} days"
+  find "$RECORDINGS_DIR" -name "*.wav" \
+    -mtime +"${RECORDINGS_RETENTION_DAYS:-3}" \
+    -print -delete 2>&1 | tee -a "$LOG_FILE"
+fi
+
+# Phase 2: Remove transcripts older than TRANSCRIPTS_RETENTION_DAYS (skip if 0)
+if [[ "${TRANSCRIPTS_RETENTION_DAYS:-0}" -gt 0 ]] && [[ -d "$TRANSCRIPTS_DIR" ]]; then
+  log "Phase 2: removing transcripts older than ${TRANSCRIPTS_RETENTION_DAYS} days"
+  find "$TRANSCRIPTS_DIR" -type f \
+    -mtime +"${TRANSCRIPTS_RETENTION_DAYS}" \
+    -print -delete 2>&1 | tee -a "$LOG_FILE"
+else
+  log "Phase 2: transcript retention is unlimited (TRANSCRIPTS_RETENTION_DAYS=0), skipping"
+fi
+
+# Phase 3: Enforce recordings disk cap
+MAX_BYTES=$(("${RECORDINGS_MAX_GB:-10}" * 1024 * 1024 * 1024))
+if [[ -d "$RECORDINGS_DIR" ]]; then
+  CURRENT_KB=$(du -sk "$RECORDINGS_DIR" 2>/dev/null | awk '{print $1}')
+  CURRENT_BYTES=$((CURRENT_KB * 1024))
+  log "Phase 3: recordings dir is $((CURRENT_BYTES / 1024 / 1024)) MB (cap: $((MAX_BYTES / 1024 / 1024)) MB)"
+
+  if [[ "$CURRENT_BYTES" -gt "$MAX_BYTES" ]]; then
+    log "Disk cap exceeded - removing oldest WAV files"
+    while [[ "$CURRENT_BYTES" -gt "$MAX_BYTES" ]]; do
+      OLDEST=$(find "$RECORDINGS_DIR" -name "*.wav" -print0 |
+        xargs -0 ls -t 2>/dev/null | tail -1)
+      [[ -z "$OLDEST" ]] && break
+      log "  Removing: $OLDEST"
+      rm -f "$OLDEST"
+      CURRENT_KB=$(du -sk "$RECORDINGS_DIR" 2>/dev/null | awk '{print $1}')
+      CURRENT_BYTES=$((CURRENT_KB * 1024))
+    done
+  fi
+fi
+
+log "GC complete."

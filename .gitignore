@@ -1,0 +1,14 @@
+# Runtime config (contains local paths)
+config/config.env
+
+# Model files (too large for git)
+models/
+*.bin
+
+# Recordings and transcripts (personal data)
+recordings/
+transcripts/
+logs/
+
+# macOS
+.DS_Store

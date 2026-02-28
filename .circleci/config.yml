@@ -1,0 +1,51 @@
+version: 2.1
+
+orbs:
+  shellcheck: circleci/shellcheck@3.2.0
+
+jobs:
+  lint:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - shellcheck/install
+      - run:
+          name: shellcheck
+          command: shellcheck bin/stream-transcribe bin/gc
+      - run:
+          name: Install shfmt
+          command: |
+            curl -sS https://webi.sh/shfmt | sh
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+      - run:
+          name: shfmt
+          command: shfmt -d -i 2 -ci bin/stream-transcribe bin/gc
+
+  test:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Install bats-core
+          command: |
+            sudo apt-get update -qq
+            sudo apt-get install -y bats
+      - run:
+          name: Create whisper-cli stub
+          command: |
+            mkdir -p "$HOME/.local/bin"
+            printf '#!/bin/bash\nof_next=false; outfile=""\nfor arg in "$@"; do\n  if $of_next; then outfile="$arg"; of_next=false; fi\n  [[ "$arg" == "-of" ]] && of_next=true\ndone\n[[ -n "$outfile" ]] && echo "stub transcript" > "${outfile}.txt"\nexit 0\n' \
+              > "$HOME/.local/bin/whisper-cli"
+            chmod +x "$HOME/.local/bin/whisper-cli"
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+      - run:
+          name: Run bats tests
+          command: bats tests/
+
+workflows:
+  ci:
+    jobs:
+      - lint
+      - test

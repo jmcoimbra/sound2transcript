@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+  <!-- Background -->
+  <rect width="400" height="120" rx="8" fill="#0d1117"/>
+
+  <!-- Waveform bars (audio input) -->
+  <rect x="30" y="50" width="8" height="20" rx="2" fill="#22d3ee"/>
+  <rect x="44" y="35" width="8" height="50" rx="2" fill="#22d3ee"/>
+  <rect x="58" y="25" width="8" height="70" rx="2" fill="#22d3ee"/>
+  <rect x="72" y="40" width="8" height="40" rx="2" fill="#22d3ee"/>
+  <rect x="86" y="30" width="8" height="60" rx="2" fill="#22d3ee"/>
+  <rect x="100" y="45" width="8" height="30" rx="2" fill="#22d3ee"/>
+  <rect x="114" y="55" width="8" height="10" rx="2" fill="#22d3ee"/>
+
+  <!-- Arrow (sound to transcript transition) -->
+  <path d="M 148 60 L 168 60 M 162 52 L 170 60 L 162 68" stroke="#64748b" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Text lines (transcript output) -->
+  <rect x="190" y="38" width="90" height="6" rx="3" fill="#a855f7"/>
+  <rect x="190" y="54" width="74" height="6" rx="3" fill="#a855f7" opacity="0.8"/>
+  <rect x="190" y="70" width="82" height="6" rx="3" fill="#a855f7" opacity="0.6"/>
+
+  <!-- Label -->
+  <text x="200" y="105" font-family="'Courier New', Courier, monospace" font-size="13" fill="#94a3b8" text-anchor="middle" letter-spacing="1">sound2transcript</text>
+</svg>

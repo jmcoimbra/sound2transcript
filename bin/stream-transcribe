@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# stream-transcribe - record system audio and transcribe with whisper-cli
+set -euo pipefail
+
+INSTALL_DIR="$HOME/sound2transcript"
+CONFIG_FILE="${SOUND2TRANSCRIPT_CONFIG:-${INSTALL_DIR}/config/config.env}"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  echo "ERROR: config not found at $CONFIG_FILE" >&2
+  echo "Run 'make install' first." >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+source "$CONFIG_FILE"
+
+log() {
+  echo "[$(date +%H:%M:%S)] $*"
+}
+
+validate_dependencies() {
+  local missing=0
+  for cmd in ffmpeg whisper-cli; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+      echo "ERROR: $cmd not found. Install: brew install ${cmd/whisper-cli/whisper-cpp}" >&2
+      missing=1
+    fi
+  done
+  if [[ ! -f "$MODEL_PATH" ]]; then
+    echo "ERROR: model not found at $MODEL_PATH" >&2
+    echo "Run: make download-model" >&2
+    missing=1
+  fi
+  return "$missing"
+}
+
+resolve_blackhole_index() {
+  local device_name="$1"
+  local devices
+  devices=$(ffmpeg -f avfoundation -list_devices true -i "" 2>&1 || true)
+  local match
+  match=$(echo "$devices" | grep -E "^\[AVFoundation.*\] \[[0-9]+\] ${device_name}" || true)
+  if [[ -n "$match" ]]; then
+    echo "$match" | grep -oE '\[[0-9]+\]' | head -1 | tr -d '[]'
+  fi
+}
+
+transcribe() {
+  local wav_file="$1"
+  local transcript_base="$2"
+  local log_file="$3"
+
+  if [[ ! -f "$wav_file" ]]; then
+    echo "ERROR: WAV file not found, nothing to transcribe." >&2
+    return 1
+  fi
+
+  local file_size
+  file_size=$(wc -c <"$wav_file" | tr -d ' ')
+  if [[ "$file_size" -lt 44 ]]; then
+    echo "ERROR: WAV file too small (${file_size} bytes). Recording may have failed." >&2
+    return 1
+  fi
+
+  log "Transcribing ${wav_file} ($((file_size / 1024 / 1024)) MB)..."
+
+  local whisper_flags=()
+  whisper_flags+=("-m" "$MODEL_PATH")
+  whisper_flags+=("-f" "$wav_file")
+  whisper_flags+=("-l" "${LANG:-auto}")
+  whisper_flags+=("-t" "${WHISPER_THREADS:-4}")
+  whisper_flags+=("-of" "$transcript_base")
+
+  [[ "${OUTPUT_TXT:-1}" == "1" ]] && whisper_flags+=("-otxt")
+  [[ "${OUTPUT_SRT:-0}" == "1" ]] && whisper_flags+=("-osrt")
+  [[ "${OUTPUT_VTT:-0}" == "1" ]] && whisper_flags+=("-ovtt")
+
+  if whisper-cli "${whisper_flags[@]}" >>"$log_file" 2>&1; then
+    log "Transcription complete:"
+    [[ "${OUTPUT_TXT:-1}" == "1" ]] && log "  TXT: ${transcript_base}.txt"
+    [[ "${OUTPUT_SRT:-0}" == "1" ]] && log "  SRT: ${transcript_base}.srt"
+    [[ "${OUTPUT_VTT:-0}" == "1" ]] && log "  VTT: ${transcript_base}.vtt"
+    rm -f "$wav_file"
+    log "WAV deleted: ${wav_file}"
+  else
+    echo "ERROR: whisper-cli failed. Check log: ${log_file}" >&2
+    echo "WAV retained for retry: ${wav_file}" >&2
+    return 1
+  fi
+}
+
+main() {
+  validate_dependencies
+
+  local blackhole_index
+  blackhole_index=$(resolve_blackhole_index "$BLACKHOLE_DEVICE_NAME")
+  if [[ -z "$blackhole_index" ]]; then
+    echo "ERROR: '${BLACKHOLE_DEVICE_NAME}' not found in AVFoundation audio devices." >&2
+    echo "Verify BlackHole is installed: brew install --cask blackhole-2ch" >&2
+    echo "See docs/SETUP.md for audio routing configuration." >&2
+    exit 1
+  fi
+
+  local timestamp
+  timestamp=$(date +%Y%m%d_%H%M%S)
+  local session_name="session_${timestamp}"
+  local wav_file="${INSTALL_DIR}/recordings/${session_name}.wav"
+  local transcript_base="${INSTALL_DIR}/transcripts/${session_name}"
+  local log_file="${INSTALL_DIR}/logs/${session_name}.log"
+
+  mkdir -p "${INSTALL_DIR}/recordings" "${INSTALL_DIR}/transcripts" "${INSTALL_DIR}/logs"
+
+  local ffmpeg_pid=""
+  cleanup() {
+    echo ""
+    log "Stopping recording..."
+    if [[ -n "$ffmpeg_pid" ]] && kill -0 "$ffmpeg_pid" 2>/dev/null; then
+      kill -INT "$ffmpeg_pid"
+      wait "$ffmpeg_pid" 2>/dev/null || true
+    fi
+    transcribe "$wav_file" "$transcript_base" "$log_file" || true
+  }
+  trap cleanup INT TERM
+
+  log "Recording from '${BLACKHOLE_DEVICE_NAME}' (device :${blackhole_index})"
+  log "Output: ${wav_file}"
+  echo "Press Ctrl+C to stop and transcribe."
+  echo ""
+
+  ffmpeg -f avfoundation \
+    -i ":${blackhole_index}" \
+    -ar "${SAMPLE_RATE:-16000}" \
+    -ac "${CHANNELS:-1}" \
+    -acodec pcm_s16le \
+    "$wav_file" \
+    -loglevel error \
+    >>"$log_file" 2>&1 &
+  ffmpeg_pid=$!
+
+  wait "$ffmpeg_pid" 2>/dev/null || true
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
