@@ -44,6 +44,28 @@ resolve_blackhole_index() {
   fi
 }
 
+check_audio_level() {
+  local wav_file="$1"
+  local stats
+  stats=$(ffmpeg -i "$wav_file" -af volumedetect -f null /dev/null 2>&1)
+  local mean_vol
+  mean_vol=$(echo "$stats" | grep "mean_volume:" | awk '{print $5}')
+
+  if [[ -z "$mean_vol" ]]; then
+    return 0  # can't detect, proceed anyway
+  fi
+
+  local mean_int="${mean_vol%.*}"
+  if [[ "$mean_int" -lt -50 ]]; then
+    log "WARNING: Audio is silent (mean volume: ${mean_vol} dB)"
+    log "BlackHole 2ch is likely not receiving audio."
+    log "Fix: System Settings > Sound > Output > set to 'Multi-Output Device'"
+    log "Skipping transcription. WAV retained: ${wav_file}"
+    return 1
+  fi
+  return 0
+}
+
 transcribe() {
   local wav_file="$1"
   local transcript_base="$2"
@@ -59,6 +81,12 @@ transcribe() {
   if [[ "$file_size" -lt 44 ]]; then
     echo "ERROR: WAV file too small (${file_size} bytes). Recording may have failed." >&2
     return 1
+  fi
+
+  if [[ "${SKIP_SILENCE_CHECK:-0}" != "1" ]]; then
+    if ! check_audio_level "$wav_file"; then
+      return 1
+    fi
   fi
 
   log "Transcribing ${wav_file} ($((file_size / 1024 / 1024)) MB)..."
@@ -89,6 +117,12 @@ transcribe() {
 }
 
 main() {
+  for arg in "$@"; do
+    case "$arg" in
+      --force) export SKIP_SILENCE_CHECK=1 ;;
+    esac
+  done
+
   validate_dependencies
 
   local blackhole_index

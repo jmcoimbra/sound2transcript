@@ -71,6 +71,26 @@ The Multi-Output Device remains available for future use.
 
 ## Troubleshooting
 
+**Transcription only outputs "you"**
+
+Whisper processes audio in 30-second chunks. When a chunk has no real speech, it hallucinates filler tokens - "you" is the most common, others include "Thank you.", "Thanks for watching.", or just periods. The pattern is distinctive: "you" appears at exactly 30-second intervals in the SRT output:
+
+```
+1
+00:00:00,000 --> 00:00:02,060
+ you
+
+2
+00:00:31,000 --> 00:00:33,060
+ you
+```
+
+This means BlackHole 2ch is not receiving audio. The recording pipeline works correctly, but the WAV contains silence because macOS is not routing system audio through BlackHole.
+
+Fix: System Settings > Sound > Output > set to your Multi-Output Device (not directly to speakers or headphones). macOS resets this after reboots, software updates, or plugging/unplugging headphones.
+
+The script includes a silence detection check (`check_audio_level`) that warns you before wasting time on transcription. To bypass it: `stream-transcribe --force`.
+
 **No audio captured (empty transcript)**
 - Confirm audio is playing while recording
 - Confirm Multi-Output Device is selected as system output
