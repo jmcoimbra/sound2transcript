@@ -52,7 +52,7 @@ check_audio_level() {
   mean_vol=$(echo "$stats" | grep "mean_volume:" | awk '{print $5}')
 
   if [[ -z "$mean_vol" ]]; then
-    return 0  # can't detect, proceed anyway
+    return 0 # can't detect, proceed anyway
   fi
 
   local mean_int="${mean_vol%.*}"
