@@ -40,13 +40,18 @@ The index number is resolved automatically by the script - you don't need to har
 2. Click the **+** button in the bottom-left corner.
 3. Select **Create Multi-Output Device**.
 4. In the right panel, check both:
-   - Your speakers (e.g., "MacBook Pro Speakers" or external speakers/headphones)
+   - Your speakers (e.g., "MacBook Pro Speakers", AirPods, or external speakers)
    - **BlackHole 2ch**
-5. Right-click the new Multi-Output Device and select **Use This Device For Sound Output**.
 
-Alternatively: System Settings > Sound > Output > select "Multi-Output Device".
+## Step 4 - Select Multi-Output Device as system output
 
-## Step 4 - Verify audio routing
+Go to **System Settings > Sound > Output** and select **Multi-Output Device**.
+
+This is required. If your system output points directly to speakers or headphones, BlackHole receives no audio and transcription will fail (see Troubleshooting below).
+
+macOS resets the output device after reboots, software updates, or plugging/unplugging headphones. If transcription stops working, check this setting first.
+
+## Step 5 - Verify audio routing
 
 1. Play any audio in your browser.
 2. Run a quick test:
@@ -59,7 +64,7 @@ cat /tmp/test_out.txt
 
 The transcript should contain text matching the audio that was playing.
 
-## Step 5 - Update your config (if needed)
+## Step 6 - Update your config (if needed)
 
 Open `~/sound2transcript/config/config.env` and verify `BLACKHOLE_DEVICE_NAME="BlackHole 2ch"` matches exactly what appears in the ffmpeg device list from Step 2.
 
