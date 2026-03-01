@@ -176,7 +176,10 @@ transcribe() {
 main() {
   for arg in "$@"; do
     case "$arg" in
-      --force) export SKIP_SILENCE_CHECK=1; export SKIP_DEVICE_CHECK=1 ;;
+      --force)
+        export SKIP_SILENCE_CHECK=1
+        export SKIP_DEVICE_CHECK=1
+        ;;
     esac
   done
 
