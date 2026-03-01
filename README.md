@@ -116,6 +116,14 @@ stream-transcribe
 
 Press **Ctrl+C** to stop. Transcription runs automatically. Output goes to `~/sound2transcript/transcripts/`.
 
+Keep the WAV file after transcription:
+
+```bash
+stream-transcribe --keep
+```
+
+To always keep recordings, set `KEEP_RECORDINGS="1"` in your config.
+
 Check version:
 
 ```bash
@@ -135,7 +143,7 @@ Runs daily at 03:30, removing old WAV files and enforcing disk caps.
 ```
 ~/sound2transcript/
 ├── models/         # whisper model files
-├── recordings/     # intermediate WAV files (auto-deleted after transcription)
+├── recordings/     # intermediate WAV files (deleted after transcription unless --keep)
 ├── transcripts/    # output .txt / .srt / .vtt
 ├── logs/           # session and gc logs
 └── config/         # config.env
@@ -157,6 +165,9 @@ All settings are in `~/sound2transcript/config/config.env`:
 | `TRANSCRIPTS_RETENTION_DAYS` | `90` | Days to keep transcripts (0 = forever) |
 | `RECORDINGS_MAX_GB` | `10` | Max disk for recordings |
 | `WHISPER_THREADS` | `4` | CPU threads for transcription |
+| `SILENCE_THRESHOLD_DB` | `-50` | Volume threshold (dB) below which recording is flagged silent |
+| `KEEP_RECORDINGS` | `0` | Keep WAV after transcription (`1`=keep, `0`=delete). Override with `--keep` |
+| `LOG_LEVEL` | `info` | Log verbosity: `info`, `warn`, or `error` |
 
 ## Development
 

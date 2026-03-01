@@ -28,7 +28,9 @@ fi
 source "$CONFIG_FILE"
 
 log() {
-  echo "[$(date +%H:%M:%S)] $*"
+  if [[ "${LOG_LEVEL:-info}" != "error" && "${LOG_LEVEL:-info}" != "warn" ]]; then
+    echo "[$(date +%H:%M:%S)] $*"
+  fi
 }
 
 validate_dependencies() {
@@ -102,7 +104,7 @@ monitor_silence() {
 
     if [[ -n "$mean_vol" ]]; then
       mean_int="${mean_vol%.*}"
-      if [[ "$mean_int" -lt -50 ]]; then
+      if [[ "$mean_int" -lt "${SILENCE_THRESHOLD_DB:--50}" ]]; then
         echo ""
         log "WARNING: Recording appears silent (${mean_vol} dB)"
         log "Fix: System Settings > Sound > Output > set to 'Multi-Output Device'"
@@ -127,7 +129,7 @@ check_audio_level() {
   fi
 
   local mean_int="${mean_vol%.*}"
-  if [[ "$mean_int" -lt -50 ]]; then
+  if [[ "$mean_int" -lt "${SILENCE_THRESHOLD_DB:--50}" ]]; then
     log "WARNING: Audio is silent (mean volume: ${mean_vol} dB)"
     log "BlackHole 2ch is likely not receiving audio."
     log "Fix: System Settings > Sound > Output > set to 'Multi-Output Device'"
@@ -178,8 +180,12 @@ transcribe() {
     [[ "${OUTPUT_TXT:-1}" == "1" ]] && log "  TXT: ${transcript_base}.txt"
     [[ "${OUTPUT_SRT:-0}" == "1" ]] && log "  SRT: ${transcript_base}.srt"
     [[ "${OUTPUT_VTT:-0}" == "1" ]] && log "  VTT: ${transcript_base}.vtt"
-    rm -f "$wav_file"
-    log "WAV deleted: ${wav_file}"
+    if [[ "${KEEP_WAV:-0}" == "1" ]]; then
+      log "WAV retained (--keep): ${wav_file}"
+    else
+      rm -f "$wav_file"
+      log "WAV deleted: ${wav_file}"
+    fi
   else
     echo "ERROR: whisper-cli failed. Check log: ${log_file}" >&2
     echo "WAV retained for retry: ${wav_file}" >&2
@@ -194,8 +200,16 @@ main() {
         export SKIP_SILENCE_CHECK=1
         export SKIP_DEVICE_CHECK=1
         ;;
+      --keep)
+        export KEEP_WAV=1
+        ;;
     esac
   done
+
+  # Config fallback: flag wins over config
+  if [[ "${KEEP_WAV:-0}" != "1" && "${KEEP_RECORDINGS:-0}" == "1" ]]; then
+    export KEEP_WAV=1
+  fi
 
   validate_dependencies
 

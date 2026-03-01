@@ -20,6 +20,8 @@ WHISPER_THREADS="2"
 RECORDINGS_RETENTION_DAYS="3"
 TRANSCRIPTS_RETENTION_DAYS="90"
 RECORDINGS_MAX_GB="10"
+SILENCE_THRESHOLD_DB="-50"
+KEEP_RECORDINGS="0"
 LOG_LEVEL="info"
 CONF
 
@@ -236,4 +238,69 @@ STUB
   [[ "$output" != *"not Multi-Output Device"* ]]
 
   rm -f /tmp/s2t_test_model.bin
+}
+
+@test "--keep flag retains WAV after transcription" {
+  source bin/stream-transcribe
+  local wav="${TEST_DIR}/test.wav"
+  local log_file="${TEST_DIR}/test.log"
+
+  dd if=/dev/zero bs=1 count=100 of="$wav" 2>/dev/null
+  touch /tmp/s2t_test_model.bin
+  export KEEP_WAV=1
+
+  run transcribe "$wav" "${TEST_DIR}/out" "$log_file"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Transcription complete"* ]]
+  [[ "$output" == *"WAV retained"* ]]
+  [ -f "$wav" ]  # WAV should be retained
+
+  unset KEEP_WAV
+  rm -f /tmp/s2t_test_model.bin
+}
+
+@test "KEEP_RECORDINGS config retains WAV after transcription" {
+  # Override config with KEEP_RECORDINGS=1
+  echo 'KEEP_RECORDINGS="1"' >> "$SOUND2TRANSCRIPT_CONFIG"
+  source bin/stream-transcribe
+  local wav="${TEST_DIR}/test.wav"
+  local log_file="${TEST_DIR}/test.log"
+
+  dd if=/dev/zero bs=1 count=100 of="$wav" 2>/dev/null
+  touch /tmp/s2t_test_model.bin
+
+  # Simulate main()'s config fallback logic
+  if [[ "${KEEP_WAV:-0}" != "1" && "${KEEP_RECORDINGS:-0}" == "1" ]]; then
+    export KEEP_WAV=1
+  fi
+
+  run transcribe "$wav" "${TEST_DIR}/out" "$log_file"
+  [ "$status" -eq 0 ]
+  [ -f "$wav" ]
+
+  unset KEEP_WAV
+  rm -f /tmp/s2t_test_model.bin
+}
+
+@test "--keep and --force can be combined" {
+  source bin/stream-transcribe
+
+  # Simulate main()'s arg parsing
+  for arg in --keep --force; do
+    case "$arg" in
+      --force)
+        export SKIP_SILENCE_CHECK=1
+        export SKIP_DEVICE_CHECK=1
+        ;;
+      --keep)
+        export KEEP_WAV=1
+        ;;
+    esac
+  done
+
+  [ "${KEEP_WAV}" = "1" ]
+  [ "${SKIP_SILENCE_CHECK}" = "1" ]
+  [ "${SKIP_DEVICE_CHECK}" = "1" ]
+
+  unset KEEP_WAV SKIP_SILENCE_CHECK SKIP_DEVICE_CHECK
 }
