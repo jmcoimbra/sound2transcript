@@ -20,20 +20,19 @@ class Sound2transcript < Formula
   end
 
   def post_install
-    (var / "sound2transcript" / "recordings").mkpath
-    (var / "sound2transcript" / "transcripts").mkpath
-    (var / "sound2transcript" / "logs").mkpath
-    (var / "sound2transcript" / "models").mkpath
+    data_dir = Pathname.new(Dir.home) / "sound2transcript"
+    %w[recordings transcripts logs models config].each do |dir|
+      (data_dir / dir).mkpath
+    end
 
-    config_dir = var / "sound2transcript" / "config"
-    config_dir.mkpath
-    config_file = config_dir / "config.env"
+    config_file = data_dir / "config" / "config.env"
     unless config_file.exist?
       cp prefix / "config" / "config.env.template", config_file
     end
   end
 
   def caveats
+    data_dir = "~/sound2transcript"
     <<~EOS
       One-time setup required after install:
 
@@ -42,16 +41,16 @@ class Sound2transcript < Formula
 
       2. Download the Whisper model (1.5 GB):
            curl -L --progress-bar \\
-             -o #{var}/sound2transcript/models/ggml-medium.bin \\
+             -o #{data_dir}/models/ggml-medium.bin \\
              "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin"
 
       3. Configure macOS audio routing:
            See #{prefix}/docs/SETUP.md
 
       4. Edit your config (optional):
-           #{var}/sound2transcript/config/config.env
+           #{data_dir}/config/config.env
 
-      Data directory: #{var}/sound2transcript/
+      Data directory: #{data_dir}/
       This directory is preserved across upgrades and uninstalls.
     EOS
   end
