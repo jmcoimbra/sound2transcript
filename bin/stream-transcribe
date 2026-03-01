@@ -27,6 +27,13 @@ fi
 # shellcheck source=/dev/null
 source "$CONFIG_FILE"
 
+# Prefer local ARM-native binary over system PATH (Rosetta/Intel)
+if [[ -x "${INSTALL_DIR}/bin/whisper-cli" ]]; then
+  export PATH="${INSTALL_DIR}/bin:${PATH}"
+elif [[ -x "/opt/homebrew/bin/whisper-cli" ]]; then
+  export PATH="/opt/homebrew/bin:${PATH}"
+fi
+
 log() {
   if [[ "${LOG_LEVEL:-info}" != "error" && "${LOG_LEVEL:-info}" != "warn" ]]; then
     echo "[$(date +%H:%M:%S)] $*"
@@ -162,7 +169,19 @@ transcribe() {
     fi
   fi
 
-  log "Transcribing ${wav_file} ($((file_size / 1024 / 1024)) MB)..."
+  local file_mb=$((file_size / 1024 / 1024))
+  local audio_duration_s=""
+  if command -v ffprobe >/dev/null 2>&1; then
+    audio_duration_s=$(ffprobe -v error -show_entries format=duration \
+      -of default=noprint_wrappers=1:nokey=1 "$wav_file" 2>/dev/null | cut -d. -f1)
+  fi
+
+  local audio_label=""
+  if [[ -n "$audio_duration_s" && "$audio_duration_s" -gt 0 ]] 2>/dev/null; then
+    audio_label=" (audio: $((audio_duration_s / 60))m $((audio_duration_s % 60))s)"
+  fi
+
+  log "Transcription started (${file_mb} MB file${audio_label})"
 
   local whisper_flags=()
   whisper_flags+=("-m" "$MODEL_PATH")
@@ -175,8 +194,25 @@ transcribe() {
   [[ "${OUTPUT_SRT:-0}" == "1" ]] && whisper_flags+=("-osrt")
   [[ "${OUTPUT_VTT:-0}" == "1" ]] && whisper_flags+=("-ovtt")
 
+  local start_ts
+  start_ts=$(date +%s)
+
   if whisper-cli "${whisper_flags[@]}" >>"$log_file" 2>&1; then
-    log "Transcription complete:"
+    local end_ts elapsed_s
+    end_ts=$(date +%s)
+    elapsed_s=$((end_ts - start_ts))
+    local elapsed_label="$((elapsed_s / 60))m $((elapsed_s % 60))s"
+
+    local ratio_label=""
+    if [[ -n "$audio_duration_s" && "$audio_duration_s" -gt 0 ]] 2>/dev/null; then
+      local ratio_x100=$(((elapsed_s * 100) / audio_duration_s))
+      local ratio_int=$((ratio_x100 / 100))
+      local ratio_frac
+      ratio_frac=$(printf "%02d" $((ratio_x100 % 100)))
+      ratio_label=" (ratio: ${ratio_int}.${ratio_frac}x)"
+    fi
+
+    log "Transcription finished in ${elapsed_label}${ratio_label}"
     [[ "${OUTPUT_TXT:-1}" == "1" ]] && log "  TXT: ${transcript_base}.txt"
     [[ "${OUTPUT_SRT:-0}" == "1" ]] && log "  SRT: ${transcript_base}.srt"
     [[ "${OUTPUT_VTT:-0}" == "1" ]] && log "  VTT: ${transcript_base}.vtt"

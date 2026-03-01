@@ -3,7 +3,7 @@ INSTALL_DIR := $(HOME)/sound2transcript
 PREFIX      ?= /usr/local
 BIN_INSTALL := $(PREFIX)/bin
 
-.PHONY: install download-model lint test check install-launchd uninstall release help
+.PHONY: install download-model download-model-turbo lint test check install-launchd uninstall release help
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
@@ -36,6 +36,16 @@ download-model: ## Download ggml-medium.bin (1.5 GB)
 		-o $(INSTALL_DIR)/models/ggml-medium.bin \
 		"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin"
 	@echo "Model saved to $(INSTALL_DIR)/models/ggml-medium.bin"
+
+download-model-turbo: ## Download ggml-large-v3-turbo-q5_0.bin (547 MB) - recommended
+	@echo "Downloading ggml-large-v3-turbo-q5_0.bin (547 MB)..."
+	@echo "This model is 6-8x faster than medium with comparable accuracy. See docs/MODELS.md"
+	@mkdir -p $(INSTALL_DIR)/models
+	@curl -L --progress-bar \
+		-o $(INSTALL_DIR)/models/ggml-large-v3-turbo-q5_0.bin \
+		"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin"
+	@echo "Model saved to $(INSTALL_DIR)/models/ggml-large-v3-turbo-q5_0.bin"
+	@echo "Update MODEL_PATH in $(INSTALL_DIR)/config/config.env to use it."
 
 install-launchd: ## Install daily GC scheduler (launchd)
 	@sed 's|__INSTALL_DIR__|$(INSTALL_DIR)|g' \

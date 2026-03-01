@@ -17,7 +17,7 @@ Capture macOS system audio from video lectures and transcribe locally using [whi
 
 - Routes system audio through BlackHole 2ch virtual driver
 - Records sessions as 16kHz mono WAV via ffmpeg
-- Transcribes with whisper-cli using the medium model (1.5 GB)
+- Transcribes with whisper-cli (default: large-v3-turbo with Metal GPU acceleration on Apple Silicon)
 - Outputs `.txt` (required), optionally `.srt` and `.vtt`
 - Garbage collects old recordings on schedule via launchd
 
@@ -106,6 +106,12 @@ rm -rf ~/sound2transcript
 
 See [docs/SETUP.md](docs/SETUP.md) - required one-time setup to route system audio through BlackHole before first use.
 
+## Choosing a model
+
+See [docs/MODELS.md](docs/MODELS.md) for model comparison, architecture-specific install instructions (Apple Silicon vs Intel), and thread tuning.
+
+**Apple Silicon users**: Make sure you're using ARM Homebrew (`/opt/homebrew/bin/brew`), not Intel Homebrew (`/usr/local/bin/brew`). Intel Homebrew runs under Rosetta 2 and produces binaries with no Metal GPU access - transcription will be 10-20x slower.
+
 ## Use
 
 Start recording:
@@ -156,7 +162,7 @@ All settings are in `~/sound2transcript/config/config.env`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `BLACKHOLE_DEVICE_NAME` | `BlackHole 2ch` | Audio loopback device name |
-| `MODEL_PATH` | `~/sound2transcript/models/ggml-medium.bin` | Whisper model path |
+| `MODEL_PATH` | `~/sound2transcript/models/ggml-large-v3-turbo-q5_0.bin` | Whisper model path ([guide](docs/MODELS.md)) |
 | `LANG` | `auto` | Language: `auto`, `en`, or `pt` |
 | `OUTPUT_TXT` | `1` | Generate .txt output |
 | `OUTPUT_SRT` | `1` | Generate .srt subtitles |

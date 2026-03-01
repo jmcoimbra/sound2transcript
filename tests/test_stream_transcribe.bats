@@ -159,7 +159,7 @@ STUB
 
   run transcribe "$wav" "${TEST_DIR}/out" "$log_file"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Transcription complete"* ]]
+  [[ "$output" == *"Transcription finished"* ]]
   [ ! -f "$wav" ]  # WAV should be deleted after transcription
 
   rm -f /tmp/s2t_test_model.bin
@@ -251,7 +251,7 @@ STUB
 
   run transcribe "$wav" "${TEST_DIR}/out" "$log_file"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Transcription complete"* ]]
+  [[ "$output" == *"Transcription finished"* ]]
   [[ "$output" == *"WAV retained"* ]]
   [ -f "$wav" ]  # WAV should be retained
 
