@@ -42,6 +42,32 @@ exit 0
 STUB
   chmod +x "${TEST_DIR}/bin/ffmpeg"
 
+  # Stub system_profiler: returns Multi-Output Device as default output
+  cat > "${TEST_DIR}/bin/system_profiler" <<'STUB'
+#!/bin/bash
+if [[ "$1" == "SPAudioDataType" && "$2" == "-json" ]]; then
+  cat <<'JSON'
+{
+  "SPAudioDataType": [{
+    "_items": [
+      {
+        "_name": "MacBook Pro Speakers",
+        "coreaudio_default_audio_system_device": "spaudio_yes"
+      },
+      {
+        "_name": "Multi-Output Device",
+        "coreaudio_default_audio_output_device": "spaudio_yes"
+      }
+    ]
+  }]
+}
+JSON
+  exit 0
+fi
+exit 0
+STUB
+  chmod +x "${TEST_DIR}/bin/system_profiler"
+
   # Stub whisper-cli
   cat > "${TEST_DIR}/bin/whisper-cli" <<'STUB'
 #!/bin/bash
@@ -126,6 +152,81 @@ STUB
   [ "$status" -eq 0 ]
   [[ "$output" == *"Transcription complete"* ]]
   [ ! -f "$wav" ]  # WAV should be deleted after transcription
+
+  rm -f /tmp/s2t_test_model.bin
+}
+
+@test "check_output_device passes when Multi-Output Device is active" {
+  source bin/stream-transcribe
+  run check_output_device
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Audio output: Multi-Output Device"* ]]
+}
+
+@test "check_output_device fails when wrong device is active" {
+  # Override system_profiler to return speakers as output
+  cat > "${TEST_DIR}/bin/system_profiler" <<'STUB'
+#!/bin/bash
+cat <<'JSON'
+{
+  "SPAudioDataType": [{
+    "_items": [
+      {
+        "_name": "MacBook Pro Speakers",
+        "coreaudio_default_audio_output_device": "spaudio_yes"
+      }
+    ]
+  }]
+}
+JSON
+STUB
+  chmod +x "${TEST_DIR}/bin/system_profiler"
+
+  source bin/stream-transcribe
+  run check_output_device
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"MacBook Pro Speakers"* ]]
+  [[ "$output" == *"not Multi-Output Device"* ]]
+}
+
+@test "check_output_device proceeds when detection fails" {
+  # Override system_profiler to return nothing useful
+  cat > "${TEST_DIR}/bin/system_profiler" <<'STUB'
+#!/bin/bash
+echo "{}"
+STUB
+  chmod +x "${TEST_DIR}/bin/system_profiler"
+
+  source bin/stream-transcribe
+  run check_output_device
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Could not detect"* ]]
+}
+
+@test "--force skips device check" {
+  # Override system_profiler to return wrong device
+  cat > "${TEST_DIR}/bin/system_profiler" <<'STUB'
+#!/bin/bash
+cat <<'JSON'
+{
+  "SPAudioDataType": [{
+    "_items": [
+      {
+        "_name": "MacBook Pro Speakers",
+        "coreaudio_default_audio_output_device": "spaudio_yes"
+      }
+    ]
+  }]
+}
+JSON
+STUB
+  chmod +x "${TEST_DIR}/bin/system_profiler"
+
+  touch /tmp/s2t_test_model.bin
+  # --force should bypass device check; will fail at BlackHole index but not at device check
+  run bin/stream-transcribe --force
+  # Should NOT contain the device check error
+  [[ "$output" != *"not Multi-Output Device"* ]]
 
   rm -f /tmp/s2t_test_model.bin
 }

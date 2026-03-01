@@ -44,6 +44,63 @@ resolve_blackhole_index() {
   fi
 }
 
+check_output_device() {
+  local current_output
+  local profiler_json
+  profiler_json=$(system_profiler SPAudioDataType -json 2>/dev/null) || true
+  if [[ -z "$profiler_json" ]]; then
+    log "WARNING: Could not detect current output device. Proceeding anyway."
+    return 0
+  fi
+  current_output=$(echo "$profiler_json" | /usr/bin/python3 -c "import json,sys;data=json.load(sys.stdin);[print(d['_name']) for d in data.get('SPAudioDataType',[{}])[0].get('_items',[]) if d.get('coreaudio_default_audio_output_device')=='spaudio_yes']" 2>/dev/null) || true
+
+  if [[ -z "$current_output" ]]; then
+    log "WARNING: Could not detect current output device. Proceeding anyway."
+    return 0
+  fi
+
+  if [[ "$current_output" != *"Multi-Output"* ]]; then
+    echo "ERROR: Audio output is '${current_output}', not Multi-Output Device." >&2
+    echo "Fix: System Settings > Sound > Output > set to 'Multi-Output Device'" >&2
+    echo "Then re-run this script." >&2
+    return 1
+  fi
+
+  log "Audio output: ${current_output}"
+  return 0
+}
+
+monitor_silence() {
+  local wav_file="$1"
+  local check_delay="${SILENCE_CHECK_DELAY:-10}"
+  local check_interval="${SILENCE_CHECK_INTERVAL:-30}"
+
+  sleep "$check_delay"
+
+  while true; do
+    if [[ ! -f "$wav_file" ]]; then
+      return 0
+    fi
+
+    local stats mean_vol mean_int
+    stats=$(ffmpeg -i "$wav_file" -af volumedetect -f null /dev/null 2>&1)
+    mean_vol=$(echo "$stats" | grep "mean_volume:" | awk '{print $5}')
+
+    if [[ -n "$mean_vol" ]]; then
+      mean_int="${mean_vol%.*}"
+      if [[ "$mean_int" -lt -50 ]]; then
+        echo ""
+        log "WARNING: Recording appears silent (${mean_vol} dB)"
+        log "Fix: System Settings > Sound > Output > set to 'Multi-Output Device'"
+        log "Recording continues. Press Ctrl+C to stop."
+        echo ""
+      fi
+    fi
+
+    sleep "$check_interval"
+  done
+}
+
 check_audio_level() {
   local wav_file="$1"
   local stats
@@ -119,11 +176,18 @@ transcribe() {
 main() {
   for arg in "$@"; do
     case "$arg" in
-      --force) export SKIP_SILENCE_CHECK=1 ;;
+      --force)
+        export SKIP_SILENCE_CHECK=1
+        export SKIP_DEVICE_CHECK=1
+        ;;
     esac
   done
 
   validate_dependencies
+
+  if [[ "${SKIP_DEVICE_CHECK:-0}" != "1" ]]; then
+    check_output_device || exit 1
+  fi
 
   local blackhole_index
   blackhole_index=$(resolve_blackhole_index "$BLACKHOLE_DEVICE_NAME")
@@ -144,9 +208,14 @@ main() {
   mkdir -p "${INSTALL_DIR}/recordings" "${INSTALL_DIR}/transcripts" "${INSTALL_DIR}/logs"
 
   local ffmpeg_pid=""
+  local monitor_pid=""
   cleanup() {
     echo ""
     log "Stopping recording..."
+    if [[ -n "$monitor_pid" ]] && kill -0 "$monitor_pid" 2>/dev/null; then
+      kill "$monitor_pid" 2>/dev/null
+      wait "$monitor_pid" 2>/dev/null || true
+    fi
     if [[ -n "$ffmpeg_pid" ]] && kill -0 "$ffmpeg_pid" 2>/dev/null; then
       kill -INT "$ffmpeg_pid"
       wait "$ffmpeg_pid" 2>/dev/null || true
@@ -169,6 +238,11 @@ main() {
     -loglevel error \
     >>"$log_file" 2>&1 &
   ffmpeg_pid=$!
+
+  if [[ "${SKIP_SILENCE_CHECK:-0}" != "1" ]]; then
+    monitor_silence "$wav_file" &
+    monitor_pid=$!
+  fi
 
   wait "$ffmpeg_pid" 2>/dev/null || true
 }
