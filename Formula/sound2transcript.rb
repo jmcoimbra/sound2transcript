@@ -2,7 +2,7 @@ class Sound2transcript < Formula
   desc "Capture macOS system audio and transcribe locally using whisper.cpp"
   homepage "https://github.com/jmcoimbra/sound2transcript"
   url "https://github.com/jmcoimbra/sound2transcript/archive/refs/tags/v1.0.0.tar.gz"
-  sha256 "9fb82223a4ea542b95c8e81940430306b2669b98a44606bbda1bd9a1a329f26c"
+  sha256 "2180be684cb05bd206ee646ef81f3da7e0bae935d43af2514fcb1af61fa5d31b"
   license "MIT"
   head "https://github.com/jmcoimbra/sound2transcript.git", branch: "main"
 
