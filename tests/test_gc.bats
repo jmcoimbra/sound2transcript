@@ -32,6 +32,13 @@ teardown() {
   rm -rf "$TEST_DIR"
 }
 
+@test "--version prints version number" {
+  run bin/gc --version
+  [ "$status" -eq 0 ]
+  [[ "$output" == "sound2transcript-gc "* ]]
+  [[ "$output" =~ [0-9]+\.[0-9]+\.[0-9]+ ]]
+}
+
 @test "gc runs without error on empty directories" {
   run bin/gc
   [ "$status" -eq 0 ]

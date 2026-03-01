@@ -88,6 +88,13 @@ teardown() {
   rm -rf "$TEST_DIR"
 }
 
+@test "--version prints version number" {
+  run bin/stream-transcribe --version
+  [ "$status" -eq 0 ]
+  [[ "$output" == "stream-transcribe "* ]]
+  [[ "$output" =~ [0-9]+\.[0-9]+\.[0-9]+ ]]
+}
+
 @test "resolve_blackhole_index finds BlackHole 2ch at index 1" {
   source bin/stream-transcribe
   result=$(resolve_blackhole_index "BlackHole 2ch")

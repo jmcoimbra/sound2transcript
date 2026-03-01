@@ -21,38 +21,92 @@ Capture macOS system audio from video lectures and transcribe locally using [whi
 - Outputs `.txt` (required), optionally `.srt` and `.vtt`
 - Garbage collects old recordings on schedule via launchd
 
-## Quick Start
+## Install
 
-### Prerequisites
+### Option A: Homebrew (recommended)
 
-- macOS 13+
-- [Homebrew](https://brew.sh)
+```bash
+brew tap jmcoimbra/tap
+brew install sound2transcript
+```
 
-### Install
+This installs `stream-transcribe` and `sound2transcript-gc` into your PATH, and pulls in `ffmpeg` and `whisper-cpp` as dependencies automatically.
+
+After installing, complete the one-time setup:
+
+```bash
+# 1. Install the virtual audio driver
+brew install --cask blackhole-2ch
+
+# 2. Download the Whisper model (1.5 GB)
+curl -L --progress-bar \
+  -o "$(brew --prefix)/var/sound2transcript/models/ggml-medium.bin" \
+  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin"
+
+# 3. Configure audio routing (required)
+open docs/SETUP.md  # or see Audio Routing below
+```
+
+### Option B: From source
 
 ```bash
 git clone https://github.com/jmcoimbra/sound2transcript.git
 cd sound2transcript
 make install
-```
-
-### Audio routing
-
-See [docs/SETUP.md](docs/SETUP.md) - required one-time setup before first use.
-
-### Download transcription model
-
-```bash
 make download-model
 ```
 
-Downloads `ggml-medium.bin` (1.5 GB) to `~/sound2transcript/models/`.
+Requires [Homebrew](https://brew.sh) and macOS 13+.
 
-### Configure
+## Update
 
-Edit `~/sound2transcript/config/config.env`. At minimum, verify `BLACKHOLE_DEVICE_NAME`.
+### Homebrew
 
-### Use
+```bash
+brew update
+brew upgrade sound2transcript
+```
+
+That's it. Homebrew handles fetching the new version and replacing the binaries.
+
+Your transcripts, recordings, model, and config are untouched - they live in the data directory, not in the Homebrew prefix.
+
+### From source
+
+```bash
+cd sound2transcript
+git pull
+make install
+```
+
+Re-runs the install, copying updated scripts over the existing ones. Your data and config are preserved.
+
+## Uninstall
+
+### Homebrew
+
+```bash
+brew uninstall sound2transcript
+brew untap jmcoimbra/tap  # optional: remove the tap
+```
+
+### From source
+
+```bash
+make uninstall
+```
+
+Both methods leave your data at `~/sound2transcript/` intact. Remove it manually if you no longer need it:
+
+```bash
+rm -rf ~/sound2transcript
+```
+
+## Audio routing
+
+See [docs/SETUP.md](docs/SETUP.md) - required one-time setup to route system audio through BlackHole before first use.
+
+## Use
 
 Start recording:
 
@@ -61,6 +115,12 @@ stream-transcribe
 ```
 
 Press **Ctrl+C** to stop. Transcription runs automatically. Output goes to `~/sound2transcript/transcripts/`.
+
+Check version:
+
+```bash
+stream-transcribe --version
+```
 
 ### Schedule garbage collection (optional)
 
@@ -105,6 +165,14 @@ make lint       # shellcheck + shfmt
 make test       # bats-core tests
 make check      # lint + test
 ```
+
+### Releasing a new version
+
+1. Bump the version in `VERSION`
+2. Commit: `git commit -am "Bump version to X.Y.Z"`
+3. Tag and push: `make release`
+4. Create the GitHub release: `gh release create vX.Y.Z`
+5. Update the SHA in the [homebrew-tap](https://github.com/jmcoimbra/homebrew-tap) formula
 
 ## License
 

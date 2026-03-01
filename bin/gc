@@ -2,6 +2,14 @@
 # gc - garbage collector for sound2transcript
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERSION="$(cat "${SCRIPT_DIR}/../VERSION" 2>/dev/null || echo "unknown")"
+
+if [[ "${1:-}" == "--version" || "${1:-}" == "-v" ]]; then
+  echo "sound2transcript-gc ${VERSION}"
+  exit 0
+fi
+
 INSTALL_DIR="$HOME/sound2transcript"
 CONFIG_FILE="${SOUND2TRANSCRIPT_CONFIG:-${INSTALL_DIR}/config/config.env}"
 

@@ -1,13 +1,15 @@
+VERSION     := $(shell cat VERSION 2>/dev/null || echo "unknown")
 INSTALL_DIR := $(HOME)/sound2transcript
-BIN_INSTALL  := /usr/local/bin
+PREFIX      ?= /usr/local
+BIN_INSTALL := $(PREFIX)/bin
 
-.PHONY: install download-model lint test check install-launchd uninstall help
+.PHONY: install download-model lint test check install-launchd uninstall release help
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
 install: ## Create directories, copy scripts, install symlinks
-	@echo "Installing sound2transcript..."
+	@echo "Installing sound2transcript v$(VERSION)..."
 	@mkdir -p $(INSTALL_DIR)/{models,recordings,transcripts,logs,config,bin}
 	@if [ ! -f $(INSTALL_DIR)/config/config.env ]; then \
 		cp config/config.env.template $(INSTALL_DIR)/config/config.env; \
@@ -17,7 +19,9 @@ install: ## Create directories, copy scripts, install symlinks
 	fi
 	@cp bin/stream-transcribe $(INSTALL_DIR)/bin/stream-transcribe
 	@cp bin/gc $(INSTALL_DIR)/bin/gc
+	@cp VERSION $(INSTALL_DIR)/VERSION
 	@chmod +x $(INSTALL_DIR)/bin/stream-transcribe $(INSTALL_DIR)/bin/gc
+	@mkdir -p $(BIN_INSTALL)
 	@ln -sf $(INSTALL_DIR)/bin/stream-transcribe $(BIN_INSTALL)/stream-transcribe
 	@ln -sf $(INSTALL_DIR)/bin/gc $(BIN_INSTALL)/gc
 	@echo "Done. Next steps:"
@@ -51,6 +55,16 @@ test: ## Run bats tests
 	bats tests/
 
 check: lint test ## Lint + test
+
+release: ## Tag and push a release (usage: make release)
+	@if git tag | grep -q "^v$(VERSION)$$"; then \
+		echo "ERROR: Tag v$(VERSION) already exists. Bump VERSION first."; \
+		exit 1; \
+	fi
+	git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
+	git push origin "v$(VERSION)"
+	@echo "Tagged and pushed v$(VERSION)."
+	@echo "Next: create GitHub release with 'gh release create v$(VERSION)'"
 
 uninstall: ## Remove symlinks and launchd scheduler
 	@-launchctl unload $(HOME)/Library/LaunchAgents/com.sound2transcript.gc.plist 2>/dev/null
